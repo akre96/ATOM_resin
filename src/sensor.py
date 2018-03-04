@@ -10,9 +10,8 @@
 import smbus, os
 from time import sleep
 
-busNumber = int(os.getenv("I2C_BUS"))
 
-bus = smbus.SMBus(busNumber)
+bus = smbus.SMBus(1)
 
 # ADXL345 constants
 EARTH_GRAVITY_MS2   = 9.80665
