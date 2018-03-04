@@ -7,105 +7,83 @@
 # the Adafruit Triple Axis ADXL345 breakout board:
 # http://shop.pimoroni.com/products/adafruit-triple-axis-accelerometer
 
-import smbus, os
+import smbus, os, math
 from time import sleep
 
 
-bus = smbus.SMBus(1)
 
-# ADXL345 constants
-EARTH_GRAVITY_MS2   = 9.80665
-SCALE_MULTIPLIER    = 0.004
 
-DATA_FORMAT         = 0x31
-BW_RATE             = 0x2C
-POWER_CTL           = 0x2D
 
-BW_RATE_1600HZ      = 0x0F
-BW_RATE_800HZ       = 0x0E
-BW_RATE_400HZ       = 0x0D
-BW_RATE_200HZ       = 0x0C
-BW_RATE_100HZ       = 0x0B
-BW_RATE_50HZ        = 0x0A
-BW_RATE_25HZ        = 0x09
 
-RANGE_2G            = 0x00
-RANGE_4G            = 0x01
-RANGE_8G            = 0x02
-RANGE_16G           = 0x03
+def read_byte(adr):
+    return bus.read_byte_data(address, adr)
 
-MEASURE             = 0x08
-AXES_DATA           = 0x32
+def read_word(adr):
+    high = bus.read_byte_data(address, adr)
+    low = bus.read_byte_data(address, adr+1)
+    val = (high << 8) + low
+    return val
 
-class ADXL345:
+def read_word_2c(adr):
+    val = read_word(adr)
+    if (val >= 0x8000):
+        return -((65535 - val) + 1)
+    else:
+        return val
 
-    address = None
+def dist(a,b):
+    return math.sqrt((a*a)+(b*b))
 
-    def __init__(self, address = 0x53):
-        self.address = address
-        self.setBandwidthRate(BW_RATE_100HZ)
-        self.setRange(RANGE_2G)
-        self.enableMeasurement()
+def get_y_rotation(x,y,z):
+    radians = math.atan2(x, dist(y,z))
+    return -math.degrees(radians)
 
-    def enableMeasurement(self):
-        bus.write_byte_data(self.address, POWER_CTL, MEASURE)
+def get_x_rotation(x,y,z):
+    radians = math.atan2(y, dist(x,z))
+    return math.degrees(radians)
 
-    def setBandwidthRate(self, rate_flag):
-        bus.write_byte_data(self.address, BW_RATE, rate_flag)
-
-    # set the measurement range for 10-bit readings
-    def setRange(self, range_flag):
-        value = bus.read_byte_data(self.address, DATA_FORMAT)
-
-        value &= ~0x0F
-        value |= range_flag
-        value |= 0x08
-
-        bus.write_byte_data(self.address, DATA_FORMAT, value)
-
-    # returns the current reading from the sensor for each axis
-    #
-    # parameter gforce:
-    #    False (default): result is returned in m/s^2
-    #    True           : result is returned in gs
-    def getAxes(self, gforce = False):
-        bytes = bus.read_i2c_block_data(self.address, AXES_DATA, 6)
-
-        x = bytes[0] | (bytes[1] << 8)
-        if(x & (1 << 16 - 1)):
-            x = x - (1<<16)
-
-        y = bytes[2] | (bytes[3] << 8)
-        if(y & (1 << 16 - 1)):
-            y = y - (1<<16)
-
-        z = bytes[4] | (bytes[5] << 8)
-        if(z & (1 << 16 - 1)):
-            z = z - (1<<16)
-
-        x = x * SCALE_MULTIPLIER
-        y = y * SCALE_MULTIPLIER
-        z = z * SCALE_MULTIPLIER
-
-        if gforce == False:
-            x = x * EARTH_GRAVITY_MS2
-            y = y * EARTH_GRAVITY_MS2
-            z = z * EARTH_GRAVITY_MS2
-
-        x = round(x, 4)
-        y = round(y, 4)
-        z = round(z, 4)
-
-        return {"x": x, "y": y, "z": z}
 
 if __name__ == "__main__":
     # if run directly we'll just create an instance of the class and output
     # the current readings
-    adxl345 = ADXL345()
+    bus = smbus.SMBus(1)
+
+    power_mgmt_1 = 0x6b
+    power_mgmt_2 = 0x6c
+    bus = smbus.SMBus(1) # or bus = smbus.SMBus(1) for Revision 2 boards
+    address = 0x68       # This is the address value read via the i2cdetect command
+
+    # Now wake the 6050 up as it starts in sleep mode
+    bus.write_byte_data(address, power_mgmt_1, 0)
     while True:
-        axes = adxl345.getAxes(True)
-        print "ADXL345 on address 0x%x:" % (adxl345.address)
-        print "   x = %.3fG" % ( axes['x'] )
-        print "   y = %.3fG" % ( axes['y'] )
-        print "   z = %.3fG" % ( axes['z'] )
+
+        print "gyro data"
+        print "---------"
+
+        gyro_xout = read_word_2c(0x43)
+        gyro_yout = read_word_2c(0x45)
+        gyro_zout = read_word_2c(0x47)
+
+        print "gyro_xout: ", gyro_xout, " scaled: ", (gyro_xout / 131)
+        print "gyro_yout: ", gyro_yout, " scaled: ", (gyro_yout / 131)
+        print "gyro_zout: ", gyro_zout, " scaled: ", (gyro_zout / 131)
+
+        print
+        print "accelerometer data"
+        print "------------------"
+
+        accel_xout = read_word_2c(0x3b)
+        accel_yout = read_word_2c(0x3d)
+        accel_zout = read_word_2c(0x3f)
+
+        accel_xout_scaled = accel_xout / 16384.0
+        accel_yout_scaled = accel_yout / 16384.0
+        accel_zout_scaled = accel_zout / 16384.0
+
+        print "accel_xout: ", accel_xout, " scaled: ", accel_xout_scaled
+        print "accel_yout: ", accel_yout, " scaled: ", accel_yout_scaled
+        print "accel_zout: ", accel_zout, " scaled: ", accel_zout_scaled
+
+        print "x rotation: " , get_x_rotation(accel_xout_scaled, accel_yout_scaled, accel_zout_scaled)
+        print "y rotation: " , get_y_rotation(accel_xout_scaled, accel_yout_scaled, accel_zout_scaled)
         sleep(5)
