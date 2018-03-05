@@ -77,6 +77,7 @@ with open('testData.csv','wb') as csvfile:
     writer= csv.writer(csvfile)
     while (i<1000) :
         data=getData()
+        print data
         writer.writerow(data)
 if __name__ == '__main__':
     app.run(host='0.0.0.0', port=80)
