@@ -75,6 +75,7 @@ def hello():
         while (i<1000) :
             data=getData()
             writer.writerow(data)
+    return 'Success'
 
 
 if __name__ == '__main__':
