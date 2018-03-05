@@ -10,6 +10,7 @@
 import smbus, os, math,csv
 from flask import Flask
 from time import sleep
+import datetime
 
 app = Flask(__name__)
 
@@ -75,9 +76,13 @@ def hello():
 i=0
 with open('testData.csv','wb') as csvfile:
     writer= csv.writer(csvfile)
-    while (i<1000) :
+    fs=100.0
+    while (i<100) :
         data=getData()
-        print data
-        writer.writerow(data)
+        t=datetime.now()
+        t=[t.microsecond]
+        print t+data
+        sleep(1/fs)
+        writer.writerow(t+data)
 if __name__ == '__main__':
     app.run(host='0.0.0.0', port=80)
