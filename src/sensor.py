@@ -7,7 +7,8 @@
 # the Adafruit Triple Axis ADXL345 breakout board:
 # http://shop.pimoroni.com/products/adafruit-triple-axis-accelerometer
 
-import smbus, os, math,csv,Flask
+import smbus, os, math,csv
+from flask import Flask
 from time import sleep
 
 app = Flask(__name__)
@@ -68,7 +69,13 @@ def getData():
 
 @app.route("/")
 def hello():
-    return getData()
+    i=0
+    with open('testData.csv','wb') as csvfile:
+        writer= csv.writer(csvfile)
+        while (i<1000) :
+            data=getData()
+            writer.writerow(data)
+
 
 if __name__ == '__main__':
     app.run(host='0.0.0.0', port=80)
